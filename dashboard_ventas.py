@@ -1,129 +1,95 @@
-import streamlit as st
 import pandas as pd
+import re
+import os
 
-st.set_page_config(page_title="Dashboard de Ventas - Ruta", layout="wide")
-
-# ===============================
-# 1️⃣ CARGA DE DATOS
-# ===============================
-archivo = "ventas_productos.xlsx"
-try:
-    df = pd.read_excel(archivo)
-except FileNotFoundError:
-    st.error(f"No se encontró {archivo}")
-    st.stop()
-
-# ===============================
-# 2️⃣ LIMPIEZA DE DATOS
-# ===============================
-def limpiar_numero(x):
-    if pd.isna(x):
-        return 0.0
-    x = str(x).replace('.', '').replace(',', '.').replace(' ', '')
+def generar_reporte_completo():
+    # Ruta absoluta del archivo Excel, relativa al script
+    archivo = os.path.join(os.path.dirname(__file__), "ventas_productos.xlsx")
+    
     try:
-        return float(x)
-    except:
-        return 0.0
+        df = pd.read_excel(archivo)
+    except FileNotFoundError:
+        print(f"Error: No se encontró el archivo '{archivo}'.")
+        return
 
-# Columnas numéricas
-df["Cant_Num"] = df["Cant"].apply(limpiar_numero)
-df["Total_Num"] = df["Total"].apply(limpiar_numero)
+    # Limpieza de valores numéricos
+    def limpiar_numero(x):
+        if pd.isna(x):
+            return 0.0
+        x_str = str(x).replace('.', '').replace(',', '.')
+        try:
+            return float(x_str)
+        except ValueError:
+            return 0.0
 
-# Columnas de texto
-df["Cliente"] = df["Cliente"].str.strip().str.upper()
-df["Factura"] = df["Factura"].astype(str).str.strip()
-df["Nombre"] = df["Nombre"].str.strip()
-df["Marca"] = df["Nombre"].str.split().str[0].str.upper()
+    df['Cant_Num'] = df['Cant'].apply(limpiar_numero)
+    df['Total_Num'] = df['Total'].apply(limpiar_numero)
 
-# Fecha
-if "Fecha" not in df.columns:
-    st.error("❌ El archivo Excel no contiene la columna 'Fecha'. Ejecuta extraer_facturas.py actualizado.")
-    st.stop()
-df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    # Función para calcular unidades individuales dentro del bulto
+    def calcular_unidades(nombre, cant_bultos):
+        nombre = str(nombre).upper()
+        
+        # Buscar displays (ej. "X 4 DISP" o "X 12DISP")
+        disp_match = re.search(r'X\s*(\d+)\s*DISP', nombre)
+        disp = int(disp_match.group(1)) if disp_match else 1
+        
+        # Buscar unidades (ej. "X 5 UND", "X 24UND", "12 UND")
+        und_match = re.search(r'(?:X\s*)?(\d+)\s*UND', nombre)
+        und = int(und_match.group(1)) if und_match else 1
+        
+        return cant_bultos * (disp * und)
 
-# Filtrar solo marcas que nos interesan
-marcas_interes = ["FRITZ","MUNCHY","HEINZ","COLOMBINA","PASTOREÑA"]
-df = df[df["Marca"].isin(marcas_interes)]
+    # Aplicamos el cálculo a toda la base de datos
+    df['Unidades_Individuales'] = df.apply(lambda row: calcular_unidades(row['Nombre'], row['Cant_Num']), axis=1)
 
-# ===============================
-# 3️⃣ FILTROS LATERALES
-# ===============================
-st.sidebar.header("Filtros")
-fecha_min = df["Fecha"].min()
-fecha_max = df["Fecha"].max()
+    # 1. Clientes y Bultos generales
+    clientes_activos = df['Cliente'].nunique()
+    total_bultos = df['Cant_Num'].sum()
 
-fecha_seleccion = st.sidebar.date_input("Fecha hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
-clientes_disponibles = df["Cliente"].unique()
-clientes_seleccion = st.sidebar.multiselect("Seleccionar clientes", options=clientes_disponibles, default=list(clientes_disponibles))
+    # 2. Análisis por Marcas Específicas
+    df_fritz = df[df['Nombre'].str.contains('FRITZ', case=False, na=False)]
+    bultos_fritz = df_fritz['Cant_Num'].sum()
+    unidades_fritz = df_fritz['Unidades_Individuales'].sum()
 
-df_filtrado = df[
-    (df["Fecha"] <= pd.to_datetime(fecha_seleccion)) &
-    (df["Cliente"].isin(clientes_seleccion))
-]
+    df_munchy = df[df['Nombre'].str.contains('MUNCHY', case=False, na=False)]
+    bultos_munchy = df_munchy['Cant_Num'].sum()
+    unidades_munchy = df_munchy['Unidades_Individuales'].sum()
 
-# ===============================
-# 4️⃣ KPIs PRINCIPALES
-# ===============================
-clientes_activos = df_filtrado["Cliente"].nunique()
-total_bultos = df_filtrado["Cant_Num"].sum()
-facturacion_total = df_filtrado["Total_Num"].sum()
-ticket_promedio = facturacion_total / df_filtrado["Factura"].nunique() if df_filtrado["Factura"].nunique() > 0 else 0
+    # 3. TOP 20 PRODUCTOS (Agrupados por bultos vendidos)
+    top_productos = df.groupby('Nombre')['Cant_Num'].sum().sort_values(ascending=False).head(20)
 
-st.title("📊 Dashboard de Ventas - Ruta")
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-kpi1.metric("Clientes activos", clientes_activos)
-kpi2.metric("Bultos vendidos", f"{total_bultos:,.0f}")
-kpi3.metric("Facturación total", f"${facturacion_total:,.2f}")
-kpi4.metric("Ticket promedio", f"${ticket_promedio:,.2f}")
+    # 4. TOP 20 CLIENTES (suma total y factura mayor)
+    facturas = df.groupby(['Cliente', 'Factura'])['Total_Num'].sum().reset_index(name='Monto_Factura')
+    top_clientes = facturas.groupby('Cliente').agg(
+        Volumen_Total=('Monto_Factura', 'sum'),
+        Factura_Mas_Alta=('Monto_Factura', 'max')
+    ).reset_index().sort_values(by='Volumen_Total', ascending=False).head(20)
 
-# ===============================
-# 5️⃣ VENTAS POR MARCA
-# ===============================
-ventas_marca = df_filtrado.groupby("Marca").agg(
-    Bultos=("Cant_Num","sum"),
-    Facturacion=("Total_Num","sum")
-).sort_values("Facturacion", ascending=False)
-ventas_marca["Participacion_%"] = ventas_marca["Facturacion"] / facturacion_total * 100
+    # REPORTE EN PANTALLA
+    print("\n" + "="*80)
+    print("📊 REPORTE DETALLADO DE VENTAS (TOP 20 Y MARCAS)".center(80))
+    print("="*80)
+    
+    print(f"👥 Clientes activos este mes: {clientes_activos}")
+    print(f"📦 Total de bultos/cajas vendidas: {total_bultos:,.2f}\n")
+    
+    print("-" * 80)
+    print("🏷️  VENTAS POR MARCA ESPECÍFICA:")
+    print(f"  • FRITZ:  {bultos_fritz:>8,.2f} bultos  --->  (Equivale a {unidades_fritz:,.2f} unidades individuales)")
+    print(f"  • MUNCHY: {bultos_munchy:>8,.2f} bultos  --->  (Equivale a {unidades_munchy:,.2f} unidades individuales)")
+    print("-" * 80 + "\n")
+    
+    print("🏆 TOP 20 PRODUCTOS MÁS VENDIDOS (Por bulto):")
+    for i, (prod, cant) in enumerate(top_productos.items(), 1):
+        print(f"  {i:2d}. {prod[:55]:<55} | {cant:,.2f} bultos")
 
-st.subheader("🏷️ Ventas por marca")
-st.dataframe(ventas_marca.style.format({"Facturacion":"${:,.2f}","Bultos":"{:,.0f}","Participacion_%":"{:.2f}%"}))
-st.bar_chart(ventas_marca[["Facturacion","Bultos"]])
+    print("\n🥇 TOP 20 CLIENTES CON MÁS VOLUMEN:")
+    print(f"      {'CLIENTE':<35} | {'VOLUMEN TOTAL':<13} | {'FACTURA MÁS ALTA'}")
+    print("-" * 80)
+    for i, (_, row) in enumerate(top_clientes.iterrows(), 1):
+        print(f"  {i:2d}. {row['Cliente'][:35]:<35} | $ {row['Volumen_Total']:>11,.2f} | $ {row['Factura_Mas_Alta']:>11,.2f}")
+        
+    print("="*80 + "\n")
 
-# ===============================
-# 6️⃣ TOP 20 PRODUCTOS
-# ===============================
-top_productos = df_filtrado.groupby("Nombre")["Cant_Num"].sum().sort_values(ascending=False).head(20)
-st.subheader("🏆 Top 20 Productos por Bultos")
-st.bar_chart(top_productos)
-
-# ===============================
-# 7️⃣ TOP 20 CLIENTES
-# ===============================
-top_clientes = df_filtrado.groupby("Cliente")["Total_Num"].sum().sort_values(ascending=False).head(20)
-st.subheader("🥇 Top 20 Clientes por Facturación")
-st.bar_chart(top_clientes)
-
-# ===============================
-# 8️⃣ CLIENTES QUE NO COMPRARON ESTE MES
-# ===============================
-mes_actual = df_filtrado["Fecha"].max().month
-clientes_mes = df_filtrado[df_filtrado["Fecha"].dt.month==mes_actual]["Cliente"].unique()
-todos_clientes = df["Cliente"].unique()
-clientes_no_mes = set(todos_clientes) - set(clientes_mes)
-
-st.subheader("📉 Clientes que no compraron este mes")
-st.write(list(clientes_no_mes))
-
-# ===============================
-# 9️⃣ PRODUCTOS QUE MÁS CRECEN
-# ===============================
-df_filtrado["Mes"] = df_filtrado["Fecha"].dt.to_period("M")
-ventas_mes = df_filtrado.groupby(["Nombre","Mes"])["Cant_Num"].sum().reset_index()
-ultimos_meses = ventas_mes["Mes"].sort_values().unique()[-2:]
-
-crecimiento = ventas_mes[ventas_mes["Mes"].isin(ultimos_meses)].pivot(index="Nombre", columns="Mes", values="Cant_Num").fillna(0)
-crecimiento["Crecimiento_%"] = ((crecimiento[ultimos_meses[-1]] - crecimiento[ultimos_meses[-2]]) / crecimiento[ultimos_meses[-2]].replace(0,1)) * 100
-crecimiento = crecimiento.sort_values("Crecimiento_%", ascending=False).head(20)
-
-st.subheader("📈 Productos que más crecen mes a mes")
-st.dataframe(crecimiento.style.format("{:.2f}"))
+if __name__ == "__main__":
+    generar_reporte_completo()
