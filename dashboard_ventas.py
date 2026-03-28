@@ -109,7 +109,7 @@ master_clientes = cargar_master_clientes("master_clientes_actualizado.xlsx")
 # -----------------------------
 # Dashboard
 # -----------------------------
-st.title("📊 Dashboard F&S Distribución - Marcos Tabata")
+st.title("📊 Dashboard de Ventas F&S Distribución")
 
 # -----------------------------
 # Filtros
