@@ -1,164 +1,283 @@
 import pandas as pd
-import re
-import os
 import streamlit as st
-from datetime import datetime
+import re
 
-# ---------------------------
-# Función para cargar datos
-# ---------------------------
-@st.cache_data
-def cargar_datos():
-    archivo = os.path.join(os.path.dirname(__file__), "ventas_productos.xlsx")
-    try:
-        df = pd.read_excel(archivo)
-    except FileNotFoundError:
-        st.error(f"No se encontró el archivo '{archivo}'")
-        return pd.DataFrame()
+# -----------------------------
+# Función para extraer marca
+# -----------------------------
+def extraer_marca(nombre):
+    """Extrae la marca considerando nombres compuestos con artículos."""
+    if not isinstance(nombre, str): return "Sin Marca"
+    partes = nombre.split()
+    if not partes: return "Sin Marca"
     
-    # Limpiar números
-    def limpiar_numero(x):
-        if pd.isna(x): return 0.0
-        x_str = str(x).replace('.', '').replace(',', '.')
-        try:
-            return float(x_str)
-        except:
-            return 0.0
+    articulos = ["LA", "EL", "LOS", "LAS", "SAN", "SANTA", "DON", "DOÑA", "MI", "DE", "DEL"]
+    
+    if partes[0].upper() in articulos and len(partes) > 1:
+        return f"{partes[0].upper()} {partes[1].upper()}"
+    else:
+        return partes[0].upper()
 
-    df['Cant_Num'] = df['Cant'].apply(limpiar_numero)
-    df['Total_Num'] = df['Total'].apply(limpiar_numero)
+# -----------------------------
+# Función para calcular unidades
+# -----------------------------
+def calcular_unidades_por_bulto(nombre):
+    """Extrae la cantidad de unidades individuales por bulto según el nombre del producto."""
+    if not isinstance(nombre, str): return 1
+    name = nombre.upper()
+    
+    m_hojas = re.search(r'(\d+)\s*(UND|PAQ|ROLLOS)\s*X\s*\d+\s*HOJAS', name)
+    if m_hojas:
+        return int(m_hojas.group(1))
+        
+    m_pair = re.search(r'(\d+)\s*(DISP|PAQ|ESTUCHE|CAJA|UND)\w*\s*X\s*(\d+)\s*(UND|ROLLO|TACO|PAQ)\w*', name)
+    if m_pair:
+        return int(m_pair.group(1)) * int(m_pair.group(3))
+        
+    m_single = re.findall(r'(\d+)\s*(UND|PAQ|ROLLO|U\b|TACO)', name)
+    if m_single:
+        m_x = re.search(r'X\s*(\d+)\s*(UND|PAQ|ROLLO|U\b|TACO)', name)
+        if m_x:
+             return int(m_x.group(1))
+        return int(m_single[-1][0])
+        
+    return 1 
 
-    # Unidades individuales
-    def calcular_unidades(nombre, cant_bultos):
-        nombre = str(nombre).upper()
-        disp_match = re.search(r'X\s*(\d+)\s*DISP', nombre)
-        disp = int(disp_match.group(1)) if disp_match else 1
-        und_match = re.search(r'(?:X\s*)?(\d+)\s*UND', nombre)
-        und = int(und_match.group(1)) if und_match else 1
-        return cant_bultos * (disp * und)
+# -----------------------------
+# Cargar datos de ventas
+# -----------------------------
+@st.cache_data
+def cargar_ventas(ruta_excel):
+    df = pd.read_excel(ruta_excel)
+    df.columns = df.columns.str.strip()
 
-    df['Unidades_Individuales'] = df.apply(lambda row: calcular_unidades(row['Nombre'], row['Cant_Num']), axis=1)
+    if 'Nombre' in df.columns:
+        df = df[~df['Nombre'].astype(str).str.upper().str.contains('TOTAL', na=False)]
 
     if 'Fecha' in df.columns:
-        df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
+        # Formato aa/mm/dd generado por el extractor
+        df['Fecha'] = pd.to_datetime(df['Fecha'], format='%y/%m/%d', errors='coerce')
+    elif 'Archivo' in df.columns:
+        df['Fecha_Str'] = df['Archivo'].str.extract(r'(\d{2}-\d{2}-\d{2})')[0]
+        df['Fecha'] = pd.to_datetime(df['Fecha_Str'], format='%d-%m-%y', errors='coerce')
+    else:
+        df['Fecha'] = pd.NaT
+
+    if 'Nombre' in df.columns:
+        df['Marca'] = df['Nombre'].apply(extraer_marca)
+        df['Und_por_bulto'] = df['Nombre'].apply(calcular_unidades_por_bulto)
+    else:
+        df['Marca'] = "Sin Marca"
+        df['Und_por_bulto'] = 1
+
+    for col in ['Cant', 'Precio', 'Total']:
+        if col in df.columns:
+            if df[col].dtype == object:
+                df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+                df[col] = df[col].str.replace(r'[^\d\.-]', '', regex=True)
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        else:
+            df[col] = 0
+            
+    df['Unidades'] = df['Cant'] * df['Und_por_bulto']
 
     return df
 
-# ---------------------------
-# Dashboard principal
-# ---------------------------
-def generar_dashboard():
-    st.set_page_config(page_title="Dashboard Ventas", layout="wide")
-    st.title("📊 Dashboard de Ventas de Ruta - Streamlit Ligero")
+# -----------------------------
+# Cargar master clientes
+# -----------------------------
+@st.cache_data
+def cargar_master_clientes(ruta_excel):
+    df_master = pd.read_excel(ruta_excel)
+    df_master.columns = df_master.columns.str.strip()
+    if 'Nombre' not in df_master.columns:
+        st.error("El master de clientes no contiene la columna 'Nombre'")
+        return pd.Series([], name='Nombre')
+    return df_master['Nombre'].unique()
 
-    # Botón para recargar datos
-    if st.button("🔄 Recargar datos"):
-        st.cache_data.clear()
-        df = cargar_datos()
-        st.success("Datos actualizados!")
+# -----------------------------
+# Configuración de la página
+# -----------------------------
+st.set_page_config(page_title="Dashboard F&S", layout="wide")
+
+# -----------------------------
+# Cargar datos
+# -----------------------------
+df_ventas = cargar_ventas("ventas_productos.xlsx")
+master_clientes = cargar_master_clientes("master_clientes_actualizado.xlsx")
+
+# -----------------------------
+# Dashboard
+# -----------------------------
+st.title("📊 Dashboard de Ventas F&S Distribución")
+
+# -----------------------------
+# Filtros
+# -----------------------------
+col_filtro1, col_filtro2, col_filtro3 = st.columns(3)
+
+with col_filtro1:
+    if df_ventas['Fecha'].notna().any():
+        df_ventas['Mes'] = df_ventas['Fecha'].dt.to_period('M')
+        mes_actual = pd.Period(pd.Timestamp.now(), freq='M')
+        meses_disponibles = df_ventas['Mes'].dropna().sort_values(ascending=False).unique()
+        mes_seleccionado = st.selectbox(
+            "Selecciona el Mes",
+            meses_disponibles,
+            index=list(meses_disponibles).index(mes_actual) if mes_actual in meses_disponibles else 0
+        )
+        df_filtrado_mes = df_ventas[df_ventas['Mes'] == mes_seleccionado]
     else:
-        df = cargar_datos()
+        df_filtrado_mes = df_ventas.copy()
+        st.warning("⚠️ No se detectaron fechas válidas. Revisa el archivo cargado.")
 
-    if df.empty:
-        st.warning("No hay datos para mostrar")
-        return
-
-    # ---------------------------
-    # KPIs generales
-    # ---------------------------
-    facturacion_total = df['Total_Num'].sum()
-    total_bultos = df['Cant_Num'].sum()
-    clientes_activos = df['Cliente'].nunique()
-    ticket_promedio = facturacion_total / clientes_activos if clientes_activos > 0 else 0
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 Facturación Total", f"${facturacion_total:,.2f}")
-    col2.metric("📦 Total de Bultos", f"{total_bultos:,.2f}")
-    col3.metric("👥 Clientes Activos", clientes_activos)
-    col4.metric("🧾 Ticket Promedio", f"${ticket_promedio:,.2f}")
-
-    # ---------------------------
-    # Filtrar por marcas
-    # ---------------------------
-    marcas = ["FRITZ","MUNCHY","HEINZ","COLOMBINA","PASTOREÑA"]
-    st.subheader("🏷️ Filtrar por marcas")
-    marcas_seleccionadas = st.multiselect("Selecciona marcas", marcas, default=marcas)
-
-    if marcas_seleccionadas:
-        df_marcas = df[df['Nombre'].str.upper().str.contains('|'.join(marcas_seleccionadas))]
+with col_filtro2:
+    if 'Cliente' in df_filtrado_mes.columns:
+        clientes_disponibles = df_filtrado_mes['Cliente'].dropna().unique()
+        cliente_seleccionado = st.selectbox("Selecciona el Cliente", ["Todos"] + list(clientes_disponibles))
+        
+        if cliente_seleccionado != "Todos":
+            df_filtrado_cli = df_filtrado_mes[df_filtrado_mes['Cliente'] == cliente_seleccionado]
+        else:
+            df_filtrado_cli = df_filtrado_mes
     else:
-        df_marcas = df.copy()
+        df_filtrado_cli = df_filtrado_mes
 
-    # Métricas por marca
-    st.subheader("📊 Métricas por Marca")
-    resumen_marcas = []
-    for marca in marcas_seleccionadas:
-        df_m = df[df['Nombre'].str.upper().str.contains(marca)]
-        bultos = df_m['Cant_Num'].sum()
-        facturacion = df_m['Total_Num'].sum()
-        unidades = df_m['Unidades_Individuales'].sum()
-        resumen_marcas.append([marca, bultos, unidades, facturacion])
+with col_filtro3:
+    marcas_disponibles = sorted(df_filtrado_cli['Marca'].unique())
+    marca_seleccionada = st.selectbox("Selecciona la Marca", ["Todas"] + list(marcas_disponibles))
 
-    if resumen_marcas:
-        df_marcas_display = pd.DataFrame(resumen_marcas, columns=["Marca","Bultos","Unidades","Facturación"])
-        df_marcas_display["Bultos"] = df_marcas_display["Bultos"].apply(lambda x: f"{x:,.2f}")
-        df_marcas_display["Unidades"] = df_marcas_display["Unidades"].apply(lambda x: f"{x:,.2f}")
-        df_marcas_display["Facturación"] = df_marcas_display["Facturación"].apply(lambda x: f"${x:,.2f}")
-        st.table(df_marcas_display)
-
-    # ---------------------------
-    # Top 20 Productos
-    # ---------------------------
-    st.subheader("🏆 Top 20 Productos")
-    top_productos = df.groupby("Nombre")["Cant_Num"].sum().sort_values(ascending=False).head(20)
-    df_top_prod = top_productos.reset_index().rename(columns={"Nombre":"Producto","Cant_Num":"Bultos"})
-    df_top_prod["Bultos"] = df_top_prod["Bultos"].apply(lambda x: f"{x:,.2f}")
-    st.table(df_top_prod)
-
-    # ---------------------------
-    # Top 20 Clientes
-    # ---------------------------
-    st.subheader("🥇 Top 20 Clientes")
-    facturas = df.groupby(["Cliente","Factura"])["Total_Num"].sum().reset_index(name="Monto_Factura")
-    top_clientes = facturas.groupby("Cliente").agg(
-        Volumen_Total=("Monto_Factura","sum"),
-        Factura_Mas_Alta=("Monto_Factura","max")
-    ).reset_index().sort_values(by="Volumen_Total", ascending=False).head(20)
-
-    df_top_cli = top_clientes.rename(columns={
-        "Cliente":"Cliente",
-        "Volumen_Total":"Volumen Total",
-        "Factura_Mas_Alta":"Factura Más Alta"
-    })
-    df_top_cli["Volumen Total"] = df_top_cli["Volumen Total"].apply(lambda x: f"${x:,.2f}")
-    df_top_cli["Factura Más Alta"] = df_top_cli["Factura Más Alta"].apply(lambda x: f"${x:,.2f}")
-    st.table(df_top_cli)
-
-    # ---------------------------
-    # Alertas importantes
-    # ---------------------------
-    st.subheader("⚠️ Alertas")
-    hoy = datetime.now()
-    if 'Fecha' in df.columns:
-        mes_actual = hoy.month
-        clientes_mes = df[df['Fecha'].dt.month==mes_actual]['Cliente'].unique()
-        clientes_todos = df['Cliente'].unique()
-        clientes_inactivos = set(clientes_todos) - set(clientes_mes)
-        st.write(f"Clientes que no compraron este mes: {len(clientes_inactivos)}")
-        st.write(list(clientes_inactivos)[:20])
-
-        ultimos_meses = df['Fecha'].max() - pd.DateOffset(months=2)
-        df_reciente = df[df['Fecha'] > ultimos_meses]
-        top_crecimiento = df_reciente.groupby("Nombre")["Cant_Num"].sum().sort_values(ascending=False).head(10)
-        df_top_crec = top_crecimiento.reset_index().rename(columns={"Nombre":"Producto","Cant_Num":"Bultos"})
-        df_top_crec["Bultos"] = df_top_crec["Bultos"].apply(lambda x: f"{x:,.2f}")
-        st.write("Productos que están creciendo en los últimos 2 meses:")
-        st.table(df_top_crec)
+    if marca_seleccionada != "Todas":
+        df_filtrado = df_filtrado_cli[df_filtrado_cli['Marca'] == marca_seleccionada]
     else:
-        st.write("No hay columna Fecha para alertas y productos en crecimiento.")
+        df_filtrado = df_filtrado_cli
 
-# ---------------------------
-# Ejecutar dashboard
-# ---------------------------
-if __name__ == "__main__":
-    generar_dashboard()
+# -----------------------------
+# Cálculos previos
+# -----------------------------
+if 'Cliente' in df_filtrado.columns:
+    clientes_activados = [c for c in master_clientes if c in df_filtrado['Cliente'].unique()]
+    clientes_faltan = [c for c in master_clientes if c not in df_filtrado['Cliente'].unique()]
+    num_activados = len(clientes_activados)
+    num_faltan = len(clientes_faltan)
+    total_clientes_mes = df_filtrado['Cliente'].nunique()
+else:
+    clientes_activados = []
+    clientes_faltan = []
+    num_activados = 0
+    num_faltan = 0
+    total_clientes_mes = 0
+
+total_facturado = df_filtrado['Total'].sum()
+ticket_promedio = total_facturado / num_activados if num_activados > 0 else 0
+total_master = len(master_clientes)
+cobertura = (num_activados / total_master * 100) if total_master > 0 else 0
+
+# -----------------------------
+# Métricas generales
+# -----------------------------
+st.subheader("📈 Métricas Generales")
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Bultos Vendidos", f"{df_filtrado['Cant'].sum():,.0f}")
+col2.metric("Unidades Vendidas", f"{df_filtrado['Unidades'].sum():,.0f}")
+col3.metric("Monto Facturado", f"${total_facturado:,.2f}")
+col4.metric("Total Clientes (Mes)", total_clientes_mes)
+
+col5, col6, col7, col8 = st.columns(4)
+col5.metric("Ticket Promedio", f"${ticket_promedio:,.2f}")
+col6.metric("Clientes Master Activados", num_activados)
+col7.metric("Clientes por Activar", num_faltan)
+col8.metric("Cobertura de Ruta", f"{cobertura:.1f}%")
+
+st.divider()
+
+# -----------------------------
+# MÉTRICAS POR MARCA
+# -----------------------------
+st.subheader("🏢 Resumen por Marca")
+
+resumen_marca = df_filtrado.groupby('Marca', as_index=False).agg(
+    Bultos=('Cant', 'sum'),
+    Unidades=('Unidades', 'sum'),
+    Facturación=('Total', 'sum')
+).sort_values(by='Facturación', ascending=False)
+
+resumen_marca_mostrar = resumen_marca.copy()
+resumen_marca_mostrar['Bultos'] = resumen_marca_mostrar['Bultos'].apply(lambda x: f"{x:,.0f}")
+resumen_marca_mostrar['Unidades'] = resumen_marca_mostrar['Unidades'].apply(lambda x: f"{x:,.0f}")
+resumen_marca_mostrar['Facturación'] = resumen_marca_mostrar['Facturación'].apply(lambda x: f"${x:,.2f}")
+
+st.dataframe(resumen_marca_mostrar, width='stretch', hide_index=True)
+
+st.divider()
+
+# -----------------------------
+# Tendencia Diaria
+# -----------------------------
+st.subheader("📅 Tendencia de Facturación Diaria")
+if not df_filtrado.empty and df_filtrado['Fecha'].notna().any():
+    ventas_diarias = df_filtrado.groupby(df_filtrado['Fecha'].dt.date)['Total'].sum()
+    st.line_chart(ventas_diarias)
+else:
+    st.info("No hay datos de fechas para mostrar la tendencia diaria.")
+
+st.divider()
+
+# -----------------------------
+# Top Productos
+# -----------------------------
+st.subheader("🏆 Top Productos por Facturación")
+top_productos = (
+    df_filtrado.groupby('Nombre', as_index=False)['Total']
+    .sum()
+    .sort_values(by='Total', ascending=False)
+)
+
+col_graf_prod, col_tab_prod = st.columns([1.5, 1])
+
+with col_graf_prod:
+    st.markdown("**Top 10 Productos (Gráfico)**")
+    if not top_productos.empty:
+        st.bar_chart(top_productos.head(10).set_index('Nombre')['Total'])
+
+with col_tab_prod:
+    st.markdown("**Top 40 Productos (Tabla)**")
+    st.dataframe(top_productos.head(40), width='stretch', hide_index=True)
+
+st.divider()
+
+# -----------------------------
+# Top Clientes
+# -----------------------------
+if 'Cliente' in df_filtrado.columns:
+    st.subheader("👥 Top Clientes por Facturación")
+    top_clientes = (
+        df_filtrado.groupby('Cliente', as_index=False)['Total']
+        .sum()
+        .sort_values(by='Total', ascending=False)
+    )
+    
+    col_graf_cli, col_tab_cli = st.columns([1.5, 1])
+    
+    with col_graf_cli:
+        st.markdown("**Top 10 Clientes (Gráfico)**")
+        if not top_clientes.empty:
+            st.bar_chart(top_clientes.head(10).set_index('Cliente')['Total'])
+        
+    with col_tab_cli:
+        st.markdown("**Top 20 Clientes (Tabla)**")
+        st.dataframe(top_clientes.head(20), width='stretch', hide_index=True)
+
+st.divider()
+
+# -----------------------------
+# Detalle completo de ventas
+# -----------------------------
+st.subheader("📋 Detalle Completo de Ventas")
+df_mostrar = df_filtrado.drop(columns=['Fecha_Str', 'Und_por_bulto', 'Mes'], errors='ignore')
+
+if 'Fecha' in df_mostrar.columns:
+    df_mostrar['Fecha'] = df_mostrar['Fecha'].dt.strftime('%Y-%m-%d')
+
+st.dataframe(df_mostrar.sort_values(by='Total', ascending=False), width='stretch', hide_index=True)
