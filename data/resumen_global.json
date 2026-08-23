@@ -1,0 +1,55 @@
+{
+ "facturas": {
+  "pdfs_procesados": 137,
+  "pdfs_ok": 137,
+  "pdfs_desviados": [],
+  "pdfs_sin_total": [],
+  "pdfs_error": [],
+  "facturas_totales": 897,
+  "facturas_duplicadas_eliminadas": [
+   {
+    "fecha": "07/01/2026",
+    "documento": "0000000128",
+    "cliente": "INSIEME, S.A.",
+    "total_operacion": 2009.09
+   }
+  ],
+  "monto_total_operacion_usd": 351151.35,
+  "cajas_totales": 11518.37
+ },
+ "pagos": {
+  "capturas_totales": 146,
+  "capturas_verificadas": 132,
+  "capturas_solo_total": [
+   "WhatsApp Image 2026-01-15 at 9.36.00 AM.jpeg",
+   "WhatsApp Image 2026-01-22 at 3.51.24 PM.jpeg",
+   "WhatsApp Image 2026-02-02 at 5.15.03 PM.jpeg",
+   "WhatsApp Image 2026-02-07 at 8.54.44 AM.jpeg",
+   "WhatsApp Image 2026-02-25 at 2.12.19 PM.jpeg",
+   "WhatsApp Image 2026-02-26 at 10.37.59 AM.jpeg",
+   "WhatsApp Image 2026-04-30 at 8.35.37 AM.jpeg",
+   "WhatsApp Image 2026-05-01 at 4.26.35 PM.jpeg",
+   "WhatsApp Image 2026-05-02 at 8.17.06 AM.jpeg",
+   "WhatsApp Image 2026-05-19 at 11.43.57 AM.jpeg",
+   "WhatsApp Image 2026-05-21 at 10.24.44 AM.jpeg",
+   "WhatsApp Image 2026-07-03 at 3.03.41 PM.jpeg",
+   "WhatsApp Image 2026-07-10 at 8.53.19 AM.jpeg",
+   "WhatsApp Image 2026-07-15 at 8.48.21 AM.jpeg"
+  ],
+  "capturas_sin_total": [],
+  "capturas_error": [],
+  "capturas_duplicadas": [],
+  "pagos_filas_extraidas": 1041,
+  "credito_total_dia_usd": 335354.66,
+  "credito_por_mes_usd": {
+   "2026-01": 25864.94,
+   "2026-02": 40743.97,
+   "2026-03": 49319.4,
+   "2026-04": 53591.15,
+   "2026-05": 41884.32,
+   "2026-06": 37054.53,
+   "2026-07": 48483.83,
+   "2026-08": 38412.52
+  }
+ }
+}

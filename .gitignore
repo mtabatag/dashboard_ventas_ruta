@@ -1,0 +1,18 @@
+# Backups temporales
+*.bak*
+*.bak_*
+
+# Respaldos de data (la red de seguridad previa a cada corrida)
+data/backup/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Datos fuente (viven fuera del repo, en Mi unidad/FYS)
+# Las carpetas fuente NO se versionan; solo los datos validados en data/
+
+# Archivos de sistema
+Thumbs.db
+Desktop.ini
+.DS_Store

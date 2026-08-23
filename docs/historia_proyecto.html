@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FYS — Historial del proyecto</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #f4f6f9; color: #1f2933; line-height: 1.55; }
+  header { background: linear-gradient(135deg, #0f4c81, #1d7ab5); color: #fff; padding: 28px 22px 22px; }
+  header h1 { margin: 0 0 6px; font-size: 1.45rem; }
+  header p { margin: 0; opacity: .9; font-size: .95rem; }
+  main { max-width: 900px; margin: 22px auto 60px; padding: 0 16px; }
+  section { background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h2 { font-size: 1.15rem; color: #0f4c81; margin: 0 0 10px; border-bottom: 2px solid #e3eaf1; padding-bottom: 8px; }
+  h3 { font-size: 1rem; color: #1d7ab5; margin: 16px 0 6px; }
+  ul, ol { margin: 6px 0 10px; padding-left: 22px; }
+  li { margin-bottom: 5px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: .92rem; }
+  th, td { border: 1px solid #dbe3ea; padding: 7px 9px; text-align: left; }
+  th { background: #eef4f9; color: #0f4c81; }
+  code { background: #eef2f6; padding: 2px 6px; border-radius: 5px; font-size: .9em; }
+  pre { background: #101f2e; color: #d6e6f5; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: .88rem; }
+  .note { background: #fff7e6; border-left: 4px solid #f0a500; padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 10px 0; }
+  footer { text-align: center; color: #7b8794; font-size: .82rem; padding: 0 0 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FYS — Historial completo del proyecto</h1>
+  <p>Respaldo de la conversación de desarrollo · Dashboard + datos validados · 12-08-2026</p>
+</header>
+<main>
+
+<section>
+  <h2>1. Objetivo del proyecto</h2>
+  <p>Centralizar en una sola carpeta limpia y validada los datos comerciales de FYS (vendedor: TABATA MARCOS):</p>
+  <ul>
+    <li><b>Facturas (PDF):</b> fecha de emisión, número de documento, nombre del cliente, total operación y cajas por factura.</li>
+    <li><b>Pagos procesados (capturas):</b> total cobrado por día (efectivo + transferencia + cupón), validado contra la sumatoria impresa.</li>
+    <li><b>Clientes:</b> master actualizado con activos e inactivos.</li>
+    <li><b>Productos:</b> qué compró cada cliente y en qué cantidades (sin precios).</li>
+    <li><b>Catálogos de venta:</b> productos con precios y existencia (3 PDFs diarios).</li>
+    <li><b>Dashboard interactivo</b> con filtros de mes y quincena, comisiones, top clientes y análisis por producto.</li>
+  </ul>
+  <p>Regla general: <b>no romper lo ya validado</b>; cada fase nueva es una capa adicional.</p>
+</section>
+
+<section>
+  <h2>2. Cronología de la conversación</h2>
+
+  <h3>Fase 0 — Origen y carpeta limpia</h3>
+  <ul>
+    <li>Los extractores anteriores extraían demasiados campos (precios, códigos por línea) y rompían la extracción. Se decidió extraer solo <b>fecha, documento, cliente, total operación y cajas</b>.</li>
+    <li>Pagos: columnas efectivo / transferencia / cupón por captura, validando contra la <b>sumatoria total impresa</b>. Si no se podía extraer todo, se usaba solo esa sumatoria (capturas "solo total").</li>
+    <li>Se eliminó una captura duplicada (WhatsApp Image del 01-05-2026 aparecía idéntica en abril y mayo; se conservó la de mayo).</li>
+    <li>Los PDFs <code>CXC.*</code> (cuentas por cobrar) y <code>MASTER*</code> se excluyen: no son listados de ventas.</li>
+    <li>Se creó <code>FYS_DATOS_VALIDADOS</code> con extractores, guía, documentación y resultados validados, lista para eliminar los proyectos llenos de basura.</li>
+  </ul>
+
+  <h3>Fase 1 — Primer dashboard</h3>
+  <ul>
+    <li>Monto facturado, cajas, cobrado, clientes top y filtros quincenales (1ª = 01–15, 2ª = 16–fin).</li>
+    <li>Comisiones: 0,3 % del facturado y 1,2 % del cobrado; la del 0,3 % se calcula sobre la base imponible (<b>÷ 1,16</b> por IVA).</li>
+    <li>Se agregaron PDFs de julio (del 18 en adelante), la carpeta de agosto con PDFs hasta la fecha y los pagos de 2026-08.</li>
+  </ul>
+
+  <h3>Fase 2 — Logo y modo oscuro</h3>
+  <ul>
+    <li>Modo oscuro con preferencia guardada y logo de F&S arriba a la izquierda.</li>
+    <li>Iteraciones del logo: pequeño → grande → versión transparente → "ahora sí se ve perfecto".</li>
+    <li>El logo no se veía desde la tablet; se resolvió <b>embebiéndolo en base64</b> dentro del HTML (funciona en PC, tablet y Drive).</li>
+    <li>Se quitó el texto "FYS" del encabezado; quedó solo el logo.</li>
+  </ul>
+
+  <h3>Fase 3 — Clientes: activos e inactivos</h3>
+  <ul>
+    <li>Listado verde (activos) / rojo (sin compra) con el mismo filtro de mes/quincena y buscador.</li>
+    <li><b>Última fecha de compra:</b> de la última factura donde aparece el cliente; si no tiene, del master.</li>
+    <li>Se corrigieron fechas que venían del master cuando el cliente sí tenía facturas recientes (ALVAREZ PLAZA MARKET, WU SUPERTODO, SUPERMERCADO VIÑEDO, NG DARLY MUNDO, etc.).</li>
+    <li>Duplicados revisados (Panadería La Naranja, Gran Oriente, City Mansion): se usa <b>solo el PDF del master + clientes nuevos de facturas</b>; los Excel se descartan.</li>
+  </ul>
+
+  <h3>Fase 4 — Master de clientes</h3>
+  <ul>
+    <li>Base: MASTER TABATA MARCOS 13-05-26.pdf con 131 clientes + 11 nuevos detectados = <b>142 clientes</b>.</li>
+  </ul>
+
+  <h3>Fase 5 — Ajustes finales del dashboard</h3>
+  <ul>
+    <li>Comisiones finales: <b>0,3 % del facturado − IVA</b> y <b>1,2 % del cobrado</b>.</li>
+    <li>"Resumen por periodo" → <b>Mes o meses</b>. La columna <b>"Días"</b> = días con al menos un cobro registrado en el período.</li>
+    <li>Top clientes: 20 mejores. KPI de clientes: número y porcentaje de activos e inactivos con dona.</li>
+    <li>Filtros oscuros en modo oscuro. Panel lateral: <b>Resumen / Clientes / Productos / Catálogo</b>.</li>
+    <li>Historial del cliente desplegable bajo la misma fila (acordeón). Exportar CSV, meta mensual editable, comparativa vs período anterior.</li>
+  </ul>
+
+  <h3>Fase 6 — Productos por factura (capa adicional)</h3>
+  <ul>
+    <li>Opción elegida: extraer solo <b>código y nombre del producto + cantidad</b>, sin precios ni totales por línea.</li>
+    <li>Resultados: 838/856 facturas con detalle validado (97,9 %), 9.009 líneas, 1.174 productos únicos.</li>
+    <li>Sección Productos: buscador, filtro por marca, top 30, historial mensual y "dejaron de venderse".</li>
+    <li>Catálogo de marcas editable; corregido CONVE02 → LA PASTOREÑA.</li>
+  </ul>
+
+  <h3>Fase 7 — Catálogos de venta (proyecto complementario)</h3>
+  <ul>
+    <li>Análisis completo de los 3 catálogos diarios (alimentos, limpieza, confitería): código, descripción, precio bulto, precio unidad/display y existencia.</li>
+    <li>Parser Fase 1: <b>1.447 productos</b> (593 alimentos, 597 limpieza, 257 confitería).</li>
+    <li>Integración al dashboard: estado OK/crítico/agotado, vendido en el período, "se vendió y no está en catálogo" / "en catálogo sin ventas".</li>
+  </ul>
+
+  <h3>Fase 8 — Infraestructura (pendiente)</h3>
+  <ul>
+    <li>Se habló de VPS/Contabo + carpeta Drive + WhatsApp. Recomendación: primero <b>ingesta automática local</b> (carpeta de entrada que ordena PDFs/capturas y corre extracción + dashboard), después la nube.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Estado final validado (12-08-2026)</h2>
+  <table>
+    <tr><th>Dato</th><th>Valor</th></tr>
+    <tr><td>Facturas</td><td>856 en 131/131 PDFs validados</td></tr>
+    <tr><td>Monto facturado</td><td>USD 335.434,35</td></tr>
+    <tr><td>Cajas totales</td><td>10.975,95</td></tr>
+    <tr><td>Pagos (capturas)</td><td>134 (120 verificadas + 14 solo total, 0 sin total)</td></tr>
+    <tr><td>Crédito por sumatoria diaria</td><td>USD 306.924,54</td></tr>
+    <tr><td>Clientes master</td><td>142 (131 del PDF + 11 nuevos)</td></tr>
+    <tr><td>Facturas con detalle de productos</td><td>838/856 (97,9 %)</td></tr>
+    <tr><td>Líneas de producto validadas</td><td>9.009</td></tr>
+    <tr><td>Productos únicos</td><td>1.174</td></tr>
+    <tr><td>Catálogos (3)</td><td>1.447 productos</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>4. Archivos clave y cómo se regenera</h2>
+  <ul>
+    <li><code>data/facturas.csv</code> — fecha, documento, cliente, total, cajas.</li>
+    <li><code>data/pagos_diarios.csv</code> — total de cada día (134 capturas).</li>
+    <li><code>data/clientes.csv</code> · <code>data/master_clientes.csv</code> — catálogo y master (142).</li>
+    <li><code>data/factura_lineas.csv</code> · <code>productos.csv</code> · <code>marcas.csv</code> — capa de productos.</li>
+    <li><code>src/run_all.py</code> — extrae todo y regenera <code>data/</code>.</li>
+    <li><code>src/build_dashboard.py</code> — regenera <code>dashboard/index.html</code>.</li>
+    <li><code>src/productos.py</code> · <code>src/generar_master.py</code> — productos y master.</li>
+    <li><code>dashboard/index.html</code> — dashboard autocontenido (logo + catálogo embebidos).</li>
+    <li><code>CATALOGOS_VENTAS/parse_catalogo.py</code> · <code>catalogo_productos.csv</code> · <code>ANALISIS_CATALOGOS.md</code>.</li>
+  </ul>
+  <pre>python src\build_dashboard.py   (regenerar dashboard)
+python src\run_all.py             (reextraer todo)</pre>
+  <div class="note">Usar el Python del runtime empaquetado de Codex. Tesseract: C:\Program Files\Tesseract-OCR\tesseract.exe.</div>
+</section>
+
+<section>
+  <h2>5. Reglas aprendidas</h2>
+  <ul>
+    <li>Los Excel nunca alimentan el master; solo el PDF del master + clientes nuevos.</li>
+    <li><code>CXC.*</code> y <code>MASTER*</code> no son listados de ventas y se excluyen.</li>
+    <li>Capturas duplicadas se eliminan (mismo archivo, se conserva una copia).</li>
+    <li>No cambiar dependencias ni romper lo validado; cada fase es capa adicional.</li>
+    <li>Comisiones finales: 0,3 % del facturado ÷ 1,16 + 1,2 % del cobrado.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. Pendientes</h2>
+  <ol>
+    <li>Ingesta automática (Fase A): carpeta de entrada que ordene PDFs/capturas y corra extracción + dashboard.</li>
+    <li>Histórico de catálogos: snapshots diarios y alertas (agotados, nuevos, cambios de precio).</li>
+    <li>Afinar marcas (p. ej. "EVERY NIGHT").</li>
+    <li>Panel de reposición: alta venta + existencia baja.</li>
+    <li>Nube/VPS (Contabo + Drive con rclone + WhatsApp) después de la Fase A.</li>
+    <li>Confirmar con Marcos la semántica de EXIST y precios del catálogo.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>7. Cómo continuar si se pierde esta conversación</h2>
+  <ul>
+    <li>Leer este documento + <code>README.md</code> + <code>docs/METODOLOGIA.md</code>.</li>
+    <li>La data validada vive en <code>data/*.csv</code>; el dashboard es autocontenido en <code>dashboard/index.html</code>.</li>
+    <li>Datos nuevos → <code>run_all.py</code>; dashboard → <code>build_dashboard.py</code>.</li>
+    <li>En Codex, la conversación se conserva mientras el hilo no se elimine; se puede fijar (pin) o archivar.</li>
+  </ul>
+</section>
+
+</main>
+<footer>FYS · Historial del proyecto · 12-08-2026</footer>
+</body>
+</html>

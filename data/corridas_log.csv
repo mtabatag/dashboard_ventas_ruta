@@ -1,0 +1,19 @@
+﻿fecha,duracion_s,facturas,monto_usd,cajas,capturas,verificadas,solo_total,sin_total,credito_usd,pasos,estado
+2026-08-13 10:18:19,395.2,859,336311.62,11007.27,134,120,14,0,306924.54,run_all=SKIP|productos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-13 10:28:33,197.2,859,336311.62,11007.27,134,120,14,0,306924.54,run_all=SKIP|productos=OK|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-13 11:00:21,0.3,859,336311.62,11007.27,134,120,14,0,306924.54,run_all=SKIP|productos=SKIP|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-13 11:06:57,0.2,859,336311.62,11007.27,134,120,14,0,306924.54,run_all=SKIP|productos=SKIP|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-13 13:05:13,1048.9,859,336311.62,11007.27,139,125,14,0,318493.87,run_all=OK|productos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-17 08:37:21,828.3,870,340279.87,11161.15,143,129,14,0,329820.48,run_all=OK|productos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-20 09:00:42,1191.2,881,344471.64,11312.61,145,131,14,0,333922.4,run_all=OK|productos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-20 17:23:44,0.5,881,344471.64,11312.61,145,131,14,0,333922.4,run_all=SKIP|productos=SKIP|despachos=SKIP|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-20 17:25:21,0.3,881,344471.64,11312.61,145,131,14,0,333922.4,run_all=SKIP|productos=SKIP|despachos=SKIP|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-20 17:25:55,0.3,881,344471.64,11312.61,145,131,14,0,333922.4,run_all=SKIP|productos=SKIP|despachos=SKIP|generar_master=SKIP|build_dashboard=OK,OK
+2026-08-20 21:00:04,1277.3,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-20 21:27:51,728.5,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-20 21:40:05,6.5,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-21 00:01:49,13.6,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-21 00:03:42,8.7,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-21 00:07:10,6.1,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-22 12:58:59,11.2,889,348364.21,11442.98,145,131,14,0,333922.4,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
+2026-08-22 13:01:15,12.4,897,351151.35,11518.37,146,132,14,0,335354.66,run_all=OK|productos=OK|despachos=OK|generar_master=OK|build_dashboard=OK,OK
